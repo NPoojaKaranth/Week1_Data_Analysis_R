@@ -1,7 +1,4 @@
-# PROJECT 2: DATA VISUALIZATION AND INSIGHT COMMUNICATION USING R
-# Dataset: Titanic dataset from the Week 1 project
-# Run from the repository root or from this script's folder.
-# Outputs are saved to Project2_Data_Visualization/outputs/
+
 
 required_packages <- c("ggplot2", "dplyr", "rpart", "rpart.plot", "officer")
 missing_packages <- required_packages[!required_packages %in% rownames(installed.packages())]
