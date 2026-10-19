@@ -15,7 +15,7 @@ d$Survived <- as.integer(d$Survived)
 d$Pclass <- factor(d$Pclass); d$Sex <- factor(d$Sex)
 d$Embarked[d$Embarked==""] <- NA
 d$Embarked <- factor(d$Embarked)
-write.csv(data.frame(Variable=names(d), Missing=sum(is.na(d)), MissingPercent=round(colMeans(is.na(d))*100,2)),
+write.csv(data.frame(Variable=names(d), Missing=colSums(is.na(d)), MissingPercent=round(colMeans(is.na(d))*100,2)),
           "outputs/tables/missing_values.csv", row.names=FALSE)
 capture.output(summary(d), file="outputs/summary_statistics.txt")
 # EDA plots
