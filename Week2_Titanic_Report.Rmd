@@ -1,0 +1,69 @@
+---
+title: "Week 2: Statistical Analysis and Predictive Modeling"
+author: "Titanic Dataset Project"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  word_document:
+    toc: true
+    number_sections: true
+---
+
+# Objective and Dataset Rationale
+
+This project continues Week 1 using the Titanic dataset. The target is Survived (0 = did not survive, 1 = survived). Passenger class, sex, age, family counts, fare, and embarkation port are candidate predictors. The dataset is suitable for hypothesis testing and binary classification.
+
+# Hypotheses
+
+1. H0: Sex and survival are independent. H1: They are associated.
+2. H0: Male and female survival proportions are equal. H1: They differ.
+3. H0: Age distributions are the same for survivors and non-survivors. H1: They differ.
+
+A significance level of 0.05 is used. Statistical significance is evidence against a null hypothesis, not proof of causation.
+
+# Descriptive Statistics and Missing Data
+
+Run Week2_Titanic_Analysis.R before knitting. It creates the outputs folder with summary statistics, missing-value counts, hypothesis tests, model metrics, and plots. Numeric missing values are imputed using training-set medians; embarkation port uses the training-set mode.
+
+```{r, echo=FALSE}
+if(file.exists("outputs/summary_statistics.txt")) cat(readLines("outputs/summary_statistics.txt"),sep="\n") else cat("Run the analysis script first.")
+```
+
+# Exploratory Visualizations
+
+```{r, echo=FALSE, out.width="85%"}
+for(p in c("outputs/plots/survival_counts.png","outputs/plots/survival_by_sex.png","outputs/plots/fare_by_class.png","outputs/plots/age_distribution.png")) if(file.exists(p)) knitr::include_graphics(p)
+```
+
+# Hypothesis Tests and Assumptions
+
+The chi-square test (or Fisher's exact test for small expected counts) checks sex-survival association. The two-proportion test compares survival rates by sex. The Wilcoxon rank-sum test compares ages without assuming normally distributed groups. Spearman correlations are used to describe numeric associations. Shapiro-Wilk results are included as distribution checks; logistic regression does not require normally distributed predictors.
+
+```{r, echo=FALSE}
+if(file.exists("outputs/hypothesis_tests.txt")) cat(readLines("outputs/hypothesis_tests.txt"),sep="\n")
+if(file.exists("outputs/normality_checks.txt")) cat(readLines("outputs/normality_checks.txt"),sep="\n")
+```
+
+# Model Building and Validation
+
+Logistic regression predicts survival probability using passenger class, sex, age, SibSp, Parch, fare, and embarkation port. A stratified 80/20 train/test split is used, followed by stratified 5-fold cross-validation on the training set. The classification threshold is 0.5. Imputation is learned from each training partition to reduce leakage.
+
+```{r, echo=FALSE}
+if(file.exists("outputs/logistic_regression_summary.txt")) cat(readLines("outputs/logistic_regression_summary.txt"),sep="\n")
+if(file.exists("outputs/tables/test_metrics.csv")) knitr::kable(read.csv("outputs/tables/test_metrics.csv"),digits=4,caption="Held-out test metrics")
+if(file.exists("outputs/tables/five_fold_cv_metrics.csv")) knitr::kable(read.csv("outputs/tables/five_fold_cv_metrics.csv"),digits=4,caption="Five-fold CV metrics")
+if(file.exists("outputs/tables/cv_summary.csv")) knitr::kable(read.csv("outputs/tables/cv_summary.csv"),digits=4,caption="Cross-validation mean and standard deviation")
+```
+
+```{r, echo=FALSE, out.width="75%"}
+for(p in c("outputs/plots/confusion_matrix.png","outputs/plots/model_diagnostics.png")) if(file.exists(p)) knitr::include_graphics(p)
+```
+
+# Interpretation, Strengths, and Improvements
+
+Use the generated p-values and metrics to write the final interpretation after running the script; do not insert guessed performance values. Accuracy is the proportion correct, precision measures reliability of predicted survivors, recall measures the proportion of actual survivors detected, specificity measures correct identification of non-survivors, and F1 balances precision and recall.
+
+Strengths include using the same dataset as Week 1, multiple statistical tests, a held-out test set, cross-validation, and multiple performance metrics. Limitations include the historical dataset, possible logit nonlinearity, influential observations, class/threshold effects, and variability from one split. Improvements include repeated/nested cross-validation, checking multicollinearity and calibration, tuning the threshold, adding justified interactions/nonlinear terms, and comparing against tree-based models. Avoid causal claims.
+
+# Deliverables and Reproducibility
+
+The script generates CSV tables, plots, model summary, predictions, confusion matrix, and diagnostic plots in outputs/. Take screenshots of code, console output, model summary, and diagnostic plots for the assignment. Report the actual time spent honestly; 30–35 hours is the task's suggested effort, not an automatic claim.
