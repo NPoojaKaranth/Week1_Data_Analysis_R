@@ -1,0 +1,207 @@
+---
+title: "Week 4: Comprehensive Data Analysis Report"
+subtitle: "Titanic Passenger Survival — R Project"
+author: "Student Data Analysis Project"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  word_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 7, fig.height = 4.5)
+library(ggplot2)
+library(dplyr)
+data("Titanic", package = "datasets")
+titanic_counts <- as.data.frame(Titanic)
+titanic <- titanic_counts[rep(seq_len(nrow(titanic_counts)), titanic_counts$Freq),
+                          c("Class", "Sex", "Age", "Survived")]
+rownames(titanic) <- NULL
+titanic <- titanic %>% mutate(
+  Survived = factor(Survived, levels = c("No", "Yes")),
+  Class = factor(Class, levels = c("1st", "2nd", "3rd", "Crew")),
+  Sex = factor(Sex),
+  Age = factor(Age, levels = c("Child", "Adult"))
+)
+```
+
+# Executive Summary
+
+This report brings the main stages of a data analysis workflow together using the Titanic passenger dataset available in R. The project moves from checking and preparing data to visual exploration, statistical association tests, and a logistic regression model. The aim is to explain what the data shows in plain language while keeping the technical steps reproducible.
+
+The analysis is based on a historical passenger table. Its patterns are useful for learning how to analyze categorical data, but they should not be interpreted as proof that any single factor caused a particular outcome.
+
+# 1. Introduction
+
+Data analysis is most useful when the steps connect: first understand the data, then check its quality, explore patterns, test questions, and finally communicate the results. The Titanic dataset is a suitable teaching example because survival is a clear binary outcome and the table includes passenger class, sex, and age group.
+
+## Objectives
+
+- Prepare the data for analysis and document data-quality checks.
+- Explore survival counts and survival proportions across groups.
+- Use chi-square tests to assess associations between survival and selected variables.
+- Fit and evaluate a logistic regression model.
+- Summarize the limitations and possible next steps.
+
+# 2. Data and Methodology
+
+The dataset is included in base R as `datasets::Titanic`. It is initially a grouped frequency table rather than one row per passenger. The analysis expands each grouped row according to its frequency, giving a passenger-level table with class, sex, age group, and survival outcome.
+
+This dataset contains categorical fields and does not include individual passenger names, exact ages, or fares in this built-in version. Therefore, the report does not make claims about fare levels or exact-age distributions.
+
+# 3. Data Preparation and Quality Checks
+
+The workflow checks the table structure, data types, and missing values. Variables are converted to factors with clear levels so that plots and the model use consistent categories. The source data is already aggregated and has no missing values in the fields used here; the script still checks this explicitly rather than assuming the data is clean.
+
+```{r data-checks}
+cat("Rows:", nrow(titanic), "\n")
+cat("Columns:", ncol(titanic), "\n")
+str(titanic)
+colSums(is.na(titanic))
+summary(titanic)
+```
+
+A cleaned copy is exported by the accompanying R script so that the preparation step can be inspected and reused.
+
+# 4. Exploratory Analysis and Visualizations
+
+## 4.1 Overall survival
+
+The first chart shows the number of passengers recorded as surviving and not surviving. Counts help establish the overall scale of the outcome. However, counts alone do not explain differences between groups, so the following sections compare proportions.
+
+```{r overall-plot}
+ggplot(titanic, aes(Survived, fill = Survived)) +
+  geom_bar() +
+  labs(title = "Titanic Passengers: Survival Counts",
+       x = "Survival outcome", y = "Number of passengers") +
+  theme_minimal() + theme(legend.position = "none")
+```
+
+## 4.2 Survival by sex
+
+The chart uses proportional bars, making it easier to compare survival shares even when group sizes differ. The built-in Titanic table shows a clear difference between the recorded survival outcomes for male and female passengers. This is a descriptive pattern in the dataset, not proof of an isolated causal effect.
+
+```{r sex-plot}
+ggplot(titanic, aes(Sex, fill = Survived)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Survival Proportion by Sex", x = "Sex",
+       y = "Share of passengers", fill = "Survived") +
+  theme_minimal()
+```
+
+## 4.3 Survival by passenger class
+
+Passenger class also shows a different survival profile across categories. Comparing proportions is more informative than comparing raw counts alone because the number of passengers in each class is not identical. Class may also reflect differences in access, location, or other factors not fully represented in this small set of variables.
+
+```{r class-plot}
+ggplot(titanic, aes(Class, fill = Survived)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Survival Proportion by Passenger Class",
+       x = "Passenger class", y = "Share of passengers", fill = "Survived") +
+  theme_minimal()
+```
+
+## 4.4 Survival by age group
+
+The age variable is grouped into children and adults. This chart compares the survival share between those groups. Because age is grouped rather than exact, the result cannot describe differences between individual ages.
+
+```{r age-plot}
+ggplot(titanic, aes(Age, fill = Survived)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Survival Proportion by Age Group", x = "Age group",
+       y = "Share of passengers", fill = "Survived") +
+  theme_minimal()
+```
+
+# 5. Statistical Analysis
+
+Chi-square tests are used to examine whether survival outcome is associated with sex, passenger class, and age group. The null hypothesis for each test is that the two categorical variables are independent. A small p-value provides evidence against independence, but it does not measure the size or practical importance of the association and does not establish causation.
+
+```{r chi-square}
+sex_test <- chisq.test(table(titanic$Sex, titanic$Survived))
+class_test <- chisq.test(table(titanic$Class, titanic$Survived))
+age_test <- chisq.test(table(titanic$Age, titanic$Survived))
+sex_test
+class_test
+age_test
+```
+
+The test results should be read alongside the visualizations. A useful report explains both the statistical evidence and the pattern seen in the data, rather than treating a p-value as the whole conclusion.
+
+# 6. Predictive Modeling
+
+Logistic regression is appropriate because survival has two outcomes. The model uses sex, passenger class, and age group as predictors. The script uses a fixed random seed and a stratified train/test split, fits the model on the training subset, and evaluates predictions on the held-out subset.
+
+```{r logistic-model}
+set.seed(42)
+train_idx <- unlist(lapply(split(seq_len(nrow(titanic)), titanic$Survived),
+                           function(idx) sample(idx, floor(0.8 * length(idx)))))
+train <- titanic[train_idx, ]
+test <- titanic[-train_idx, ]
+model <- glm(Survived ~ Sex + Class + Age, data = train, family = binomial)
+summary(model)
+```
+
+The coefficients are expressed in log-odds. Exponentiating a coefficient gives an odds ratio, which can be easier to explain, although interpretation depends on the reference category.
+
+```{r model-odds-ratios}
+data.frame(
+  term = names(coef(model)),
+  coefficient = unname(coef(model)),
+  odds_ratio = exp(unname(coef(model)))
+)
+```
+
+## Model evaluation
+
+The next code chunk calculates the confusion matrix, accuracy, precision, and recall on the test set. Accuracy is the share of predictions that are correct. Precision describes how many predicted survivors were actually survivors; recall describes how many actual survivors were identified. These metrics should be considered together because one score alone may hide important errors.
+
+```{r evaluation}
+prob <- predict(model, newdata = test, type = "response")
+pred <- factor(ifelse(prob >= 0.5, "Yes", "No"), levels = c("No", "Yes"))
+confusion <- table(Predicted = pred, Actual = test$Survived)
+accuracy <- mean(pred == test$Survived)
+precision <- if (sum(pred == "Yes") == 0) NA_real_ else
+  sum(pred == "Yes" & test$Survived == "Yes") / sum(pred == "Yes")
+recall <- if (sum(test$Survived == "Yes") == 0) NA_real_ else
+  sum(pred == "Yes" & test$Survived == "Yes") / sum(test$Survived == "Yes")
+confusion
+data.frame(metric = c("Accuracy", "Precision (survived)", "Recall (survived)"),
+           value = c(accuracy, precision, recall))
+```
+
+These scores are estimates for this particular split, not a guarantee of future performance. A stronger follow-up would compare multiple splits or use cross-validation and check calibration as well as classification accuracy.
+
+# 7. Discussion and Practical Implications
+
+The charts and tests provide a consistent way to compare survival patterns across passenger groups. Such analysis demonstrates why data should be summarized by meaningful categories and why proportional comparisons are useful when group sizes differ. For a real-world decision-maker, the main value is the structured process: define a question, validate the data, explore it, test patterns, evaluate a model, and communicate limitations.
+
+The analysis is educational rather than operational. The dataset is historical, some variables are grouped, and the model uses only three predictors. Unrecorded factors and the circumstances of the disaster are not represented, so the results should not be generalized to modern transport safety without further evidence.
+
+# 8. Challenges and Lessons Learned
+
+One important detail was recognizing that R's built-in Titanic object is a frequency table. Expanding the table made the analysis easier to explain and allowed the model to operate on passenger-level rows. Another lesson is that visualizations and model evaluation answer different questions: plots show patterns, statistical tests assess evidence of association, and predictive metrics describe how well a model classifies held-out examples.
+
+A further lesson is to avoid overstating results. An association does not prove causation, and an apparently strong model score does not mean the model is complete or unbiased.
+
+# 9. Future Scope
+
+- Use a passenger-level public dataset with additional fields such as fare, port of embarkation, and individual age.
+- Compare logistic regression with a decision tree or random forest.
+- Use cross-validation and report uncertainty in model metrics.
+- Explore interactions between predictors and assess probability calibration.
+- Add accessible chart labels, alternative text, and a short non-technical executive summary.
+
+# 10. Conclusion
+
+This project combines data preparation, visualization, statistical testing, and predictive modeling in one reproducible R workflow. The Titanic example shows how a careful analysis can move beyond raw counts to compare groups and evaluate a model. The most important takeaway is that reliable conclusions depend on transparent methods, clear visuals, honest interpretation, and a willingness to acknowledge limitations.
+
+# Appendix: Reproducibility
+
+Run `Week4_Titanic_Analysis.R` from the repository root to create the graph and table outputs. Knit this R Markdown file to Word to produce the final report with code, figures, and results. Review the generated document before submission to ensure it reflects the results from the version of the script you ran.
